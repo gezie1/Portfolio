@@ -1,0 +1,168 @@
+---
+title: "Question 2a"
+output: html_document
+date: "2024-03-23"
+---
+
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(patchwork)
+library(lubridate)
+```
+
+```{r}
+setwd("C:/Users/ASUS UX534F/Desktop/SIM/y2/ST2195/Coursework/Datasets")
+```
+
+```{r}
+df_list <- list()
+```
+
+
+```{r}
+years <- 1995:2004
+```
+
+```{r}
+for (year in years) {
+  filename <- paste0(year, ".csv")
+  file_path <- file.path(getwd(), filename)
+  
+  if (file.exists(file_path)) {
+    df_list[[year]] <- read_csv(file_path, locale = locale(encoding = "latin1"))
+  }
+}
+```
+
+
+```{r}
+df <- bind_rows(df_list)
+```
+
+```{r}
+convert_time <- function(float_time) {
+  return(as.integer(float_time %/% 100))
+}
+```
+
+
+```{r}
+df <- df %>%
+  mutate(DepHour = sapply(CRSDepTime, convert_time),
+         AvgDelayTime = (ArrDelay + DepDelay) / 2)
+```
+
+```{r}
+df_avg_hour <- df %>%
+  group_by(DepHour) %>%
+  summarise(AvgDelayTime = mean(AvgDelayTime, na.rm = TRUE))
+```
+
+Overall best time
+```{r}
+options(repr.plot.width=10, repr.plot.height=6)
+
+ggplot(df_avg_hour, aes(x = DepHour, y = AvgDelayTime)) +
+  geom_bar(stat = "identity", fill = "brown") +
+  geom_text(aes(label = sprintf("%.1f", AvgDelayTime)), vjust = -0.5, size = 2) +
+  labs(title = "Overall Delay Time Daily",
+       x = "Departure Time",
+       y = "Average Delay (Minute)") +
+  scale_x_continuous(breaks = seq(0, 24, by = 1)) + 
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5),
+        panel.grid = element_blank()) +
+  ggtitle("Overall Delay Time Daily")
+
+
+```
+
+Best time of the day per year
+```{r}
+for (year in years) {
+  df_year <- df[df$Year == year, ]
+  df_avg_hour <- df_year %>%
+    group_by(DepHour) %>%
+    summarise(AvgDelayTime = mean(AvgDelayTime, na.rm = TRUE))
+  
+  plot <- ggplot(df_avg_hour, aes(x = DepHour, y = AvgDelayTime)) +
+    geom_bar(stat = "identity", fill = "brown") +
+    geom_text(aes(label = sprintf("%.1f", AvgDelayTime)), vjust = -0.5, size = 3) +
+    labs(title = paste("Average Delay Time Daily -", year),
+         x = "Departure Time",
+         y = "Average Delay (Minute)") +
+    scale_x_continuous(breaks = seq(0, 24, by = 1)) + 
+    theme_minimal() +
+    theme(plot.title = element_text(hjust = 0.5),
+          axis.title = element_text(size = 16),
+          axis.text = element_text(size = 12),
+          panel.grid = element_blank())
+  
+  print(plot)
+}
+```
+
+```{r}
+best_times_table <- data.frame(Year = integer(), DepHour = integer(), AvgDelayTime = double())
+
+for (year in years) {
+  df_year <- df[df$Year == year, ]
+  df_avg_hour <- df_year %>%
+    group_by(DepHour) %>%
+    summarise(AvgDelayTime = mean(AvgDelayTime, na.rm = TRUE))
+  
+  best_time_row <- df_avg_hour[which.min(df_avg_hour$AvgDelayTime), ]
+  best_time_row$Year <- year
+  best_times_table <- bind_rows(best_times_table, best_time_row)
+}
+best_times_table
+
+```
+
+
+Overall best day
+```{r}
+df_avg_day <- df %>%
+  group_by(DayOfWeek) %>%
+  summarise(AvgDelayTime = mean(AvgDelayTime, na.rm = TRUE)) %>%
+  mutate(DayOfWeek = factor(DayOfWeek, labels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")))
+
+ggplot(df_avg_day, aes(x = DayOfWeek, y = AvgDelayTime)) +
+  geom_bar(stat = "identity", fill = "saddlebrown") +
+  geom_text(aes(label = sprintf("%.1f", AvgDelayTime)), vjust = -0.5, size = 3) +
+  labs(title = "Average Delay Time by Day of the Week",
+       x = "Day of the Week",
+       y = "Average Delay (Minute)") +
+  theme_minimal() +
+  theme(panel.grid = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(hjust = 0.5)) +
+  ggtitle("Overall Delay Time Daily")
+
+```
+
+Best day of the week per year
+```{r}
+for (year in years) {
+  df_year <- df[df$Year == year, ]
+  df_avg_day <- df_year %>%
+    group_by(DayOfWeek) %>%
+    summarise(AvgDelayTime = mean(AvgDelayTime, na.rm = TRUE)) %>%
+    mutate(DayOfWeek = factor(DayOfWeek, labels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")))
+  
+  plot2 <- ggplot(df_avg_day, aes(x = DayOfWeek, y = AvgDelayTime)) +
+    geom_bar(stat = "identity", fill = "saddlebrown") +
+    geom_text(aes(label = sprintf("%.1f", AvgDelayTime)), vjust = -0.5, size = 3) +
+    labs(title = paste("Average Delay Time by Day of the Week -", year),
+         x = "Day of the Week",
+         y = "Average Delay (Minute)") +
+    theme_minimal() +
+    theme(panel.grid = element_blank(),
+          plot.title = element_text(hjust = 0.5),
+          axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  print(plot2)
+}
+```
